@@ -26,6 +26,7 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteException;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
@@ -34,6 +35,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.util.StateSet;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -66,12 +68,15 @@ public class EarthquakeActivity extends AppCompatActivity
     SQLiteDatabase sqLiteDatabaseWrite;
     private boolean NetworkFlag;
     private Merlin merlin;
+    private TextView StatusView;
+    boolean startflag;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
         ListView earthquakeListView = (ListView) findViewById(R.id.list);
+        startflag = true;
         Dbhelper db = new Dbhelper(this);
         SQLiteDatabase sqLiteDatabase = db.getWritableDatabase();
         sqLiteDatabase.execSQL(Dbhelper.Create);
@@ -85,6 +90,13 @@ public class EarthquakeActivity extends AppCompatActivity
         NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
         if (networkInfo != null && networkInfo.isConnected()){
             NetworkFlag = true;
+        }else{
+            startflag = false;
+            StatusView = (TextView)findViewById(R.id.textView);
+            StatusView.setVisibility(View.VISIBLE);
+            StatusView.setTextColor(Color.WHITE);
+            StatusView.setText("Offline Mode");
+            StatusView.setBackgroundColor(getResources().getColor(R.color.OfflineColor));
         }
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
@@ -212,6 +224,47 @@ public class EarthquakeActivity extends AppCompatActivity
             public void onConnect() {
                 NetworkFlag = true;
                 Toast.makeText(getApplicationContext(),"Connected",Toast.LENGTH_SHORT).show();
+                StatusView = (TextView)findViewById(R.id.textView);
+
+                if(startflag){
+                    startflag = false;
+                    StatusView.setText("Connected");
+                    Thread thread = new Thread() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(3000);
+                            } catch (InterruptedException e) {
+                            }
+
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    // Do some stuff
+                                    StatusView.setVisibility(View.GONE);
+                                }
+                            });
+                        }
+                    };
+                    thread.start();
+                }else {
+                    StatusView.setVisibility(View.VISIBLE);
+                    StatusView.setText("Back Online(Tap To Refresh)");
+                    //final EarthquakeActivity earth = new EarthquakeActivity();
+                    StatusView.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View view) {
+                            StatusView.setVisibility(View.GONE);
+                            View loadingIndicator = findViewById(R.id.loading_indicator);
+                            loadingIndicator.setVisibility(View.VISIBLE);
+
+                            getLoaderManager().restartLoader(EARTHQUAKE_LOADER_ID, null,EarthquakeActivity.this);
+                        }
+                    });
+                }
+                StatusView.setTextColor(Color.WHITE);
+                StatusView.setBackgroundColor(getResources().getColor(R.color.BackOnline));
+
                 //setViews(con);
             }
         });
@@ -220,8 +273,27 @@ public class EarthquakeActivity extends AppCompatActivity
             @Override
             public void onDisconnect() {
                 NetworkFlag = false;
+                startflag = false;
                 //setViews(con);
                 Toast.makeText(getApplicationContext(),"Disconnected",Toast.LENGTH_SHORT).show();
+                StatusView = (TextView)findViewById(R.id.textView);
+                StatusView.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        StatusView.setText("Offline Mode :(");
+                    }
+                });
+                runOnUiThread(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        StatusView.setVisibility(View.VISIBLE);
+                        StatusView.setTextColor(Color.WHITE);
+                        StatusView.setText("Offline Mode");
+                        StatusView.setBackgroundColor(getResources().getColor(R.color.OfflineColor));
+                    }
+                });
+
             }
         });
     }

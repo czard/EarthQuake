@@ -58,4 +58,6 @@
 
     <!-- Magnitude circle color for an earthquake with magnitude over 10 -->
     <color name="magnitude10plus">#C03823</color>
+    <color name = "BackOnline">#388e3c</color>
+    <color name="OfflineColor">#9E9E9E</color>
 </resources>
