@@ -16,19 +16,10 @@
 <!-- Layout for a list of earthquakes -->
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
+    android:orientation="vertical"
     android:layout_height="match_parent">
-
-    <ListView
-        android:id="@+id/list"
-        android:orientation="vertical"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:divider="@null"
-        android:dividerHeight="0dp"
-        android:layout_below="@+id/textView" />
-
-    <!-- Empty view is only visible when the list has no items. -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -39,6 +30,57 @@
         android:id="@+id/textView"
         android:layout_alignParentRight="true"
         android:layout_alignParentEnd="true" />
+    <android.support.v4.widget.SwipeRefreshLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/swipeContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+
+        android:layout_below="@+id/textView">
+
+    <ListView
+        android:id="@+id/list"
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        />
+
+    </android.support.v4.widget.SwipeRefreshLayout>
+
+    <android.support.design.widget.FloatingActionButton
+        android:id="@+id/FAB"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginBottom="35dp"
+        android:layout_marginRight="25dp"
+        android:src="@drawable/loc4"
+        app:backgroundTint="@color/colorPrimaryDark" />
+    <android.support.design.widget.FloatingActionButton
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:id="@+id/ShowMaps"
+        android:layout_above="@id/FAB"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="25dp"
+        android:layout_marginBottom="10dp"
+        app:backgroundTint="@color/ShowMapColor"
+        android:src="@drawable/globe"
+        />
+
+    <!-- Empty view is only visible when the list has no items. -->
+    <ImageView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/emptyview"
+        android:scaleType="centerCrop"
+        android:layout_above="@+id/ShowMaps"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="18dp"
+        android:visibility="invisible"
+        android:id="@+id/empty_view1"
+        />
     <TextView
         android:id="@+id/empty_view"
         android:layout_width="wrap_content"
@@ -51,7 +93,7 @@
         android:id="@+id/loading_indicator"
         style="@style/Widget.AppCompat.ProgressBar"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_height="56dp"
         android:layout_centerInParent="true"/>
 
 </RelativeLayout>

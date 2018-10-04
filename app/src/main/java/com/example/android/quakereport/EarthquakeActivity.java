@@ -32,7 +32,10 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.preference.PreferenceManager;
+import android.support.design.widget.FloatingActionButton;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.util.StateSet;
@@ -40,6 +43,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,6 +52,8 @@ import com.novoda.merlin.Merlin;
 import com.novoda.merlin.MerlinBuilder;
 import com.novoda.merlin.registerable.connection.Connectable;
 import com.novoda.merlin.registerable.disconnection.Disconnectable;
+
+import com.example.android.quakereport.maps_activity;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,7 +64,7 @@ public class EarthquakeActivity extends AppCompatActivity
         implements LoaderCallbacks<List<Earthquake>>,
         SharedPreferences.OnSharedPreferenceChangeListener {
 
-
+    public static ArrayList<Earthquake> FinalQuakes;
     private static final String LOG_TAG = EarthquakeActivity.class.getName();
     private static final String USGS_REQUEST_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query";
     private static final int EARTHQUAKE_LOADER_ID = 1;
@@ -70,13 +76,29 @@ public class EarthquakeActivity extends AppCompatActivity
     private Merlin merlin;
     private TextView StatusView;
     boolean startflag;
-
+    private SwipeRefreshLayout swipeRefreshLayout;
+    private FloatingActionButton floatingActionButton;
+    private TextView emptyView;
+    private FloatingActionButton ShowMaps;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.earthquake_activity);
         ListView earthquakeListView = (ListView) findViewById(R.id.list);
         startflag = true;
+        emptyView = (TextView) findViewById(R.id.empty_view);
+        emptyView.setVisibility(View.INVISIBLE);
+        floatingActionButton = (FloatingActionButton)findViewById(R.id.FAB);
+        ShowMaps = (FloatingActionButton)findViewById(R.id.ShowMaps);
+        ShowMaps.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(getApplicationContext(),Map_display.class);
+                startActivity(intent);
+            }
+        });
+        //floatingActionButton.setImageResource(R.drawable.loc);
+
         Dbhelper db = new Dbhelper(this);
         SQLiteDatabase sqLiteDatabase = db.getWritableDatabase();
         sqLiteDatabase.execSQL(Dbhelper.Create);
@@ -93,6 +115,20 @@ public class EarthquakeActivity extends AppCompatActivity
         }else{
             startflag = false;
             StatusView = (TextView)findViewById(R.id.textView);
+            /*StatusView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    StatusView.setText("Offline Mode :(");
+                }
+            });*/
+            swipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipeContainer);
+            swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+                @Override
+                public void onRefresh() {
+                    Toast.makeText(getApplicationContext(),"Offline!",Toast.LENGTH_SHORT).show();
+                    swipeRefreshLayout.setRefreshing(false);
+                }
+            });
             StatusView.setVisibility(View.VISIBLE);
             StatusView.setTextColor(Color.WHITE);
             StatusView.setText("Offline Mode");
@@ -132,6 +168,22 @@ public class EarthquakeActivity extends AppCompatActivity
             loadingIndicator.setVisibility(View.GONE);
             mAdapter.addAll(OfflineEarthquakes);
 
+        }
+        if(NetworkFlag){
+            floatingActionButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(getApplicationContext(),maps_activity.class);
+                    startActivity(intent);
+                }
+            });
+        }else{
+            floatingActionButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Toast.makeText(getApplicationContext(),"Cant Access Map In Offline Mode.",Toast.LENGTH_SHORT).show();
+                }
+            });
         }
     }
 
@@ -197,25 +249,41 @@ public class EarthquakeActivity extends AppCompatActivity
         Uri.Builder uriBuilder = baseUri.buildUpon();
 
         uriBuilder.appendQueryParameter("format", "geojson");
-       // uriBuilder.appendQueryParameter("limit", "");
+        uriBuilder.appendQueryParameter("limit", "200");
         uriBuilder.appendQueryParameter("minmag", minMagnitude);
         uriBuilder.appendQueryParameter("orderby", orderBy);
+        if(maps_activity.latitude== -361 && maps_activity.longitude== -361){
 
+        }else {
+            uriBuilder.appendQueryParameter("latitude", maps_activity.latitude + "");
+            uriBuilder.appendQueryParameter("longitude", maps_activity.longitude + "");
+            uriBuilder.appendQueryParameter("maxradiuskm", "1000");
+        }
         return new EarthquakeLoader(this, uriBuilder.toString());
     }
 
     @Override
     public void onLoadFinished(Loader<List<Earthquake>> loader, List<Earthquake> earthquakes) {
         View loadingIndicator = findViewById(R.id.loading_indicator);
+        swipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipeContainer);
+        swipeRefreshLayout.setRefreshing(false);
         loadingIndicator.setVisibility(View.GONE);
+        Toast.makeText(getApplicationContext(),"Done Loading!",Toast.LENGTH_SHORT).show();
 
         mAdapter.clear();
 
         if (earthquakes != null && !earthquakes.isEmpty()) {
             StoreDB(earthquakes);
+            FinalQuakes = (ArrayList<Earthquake>)earthquakes;
+            emptyView.setVisibility(View.INVISIBLE);
+            /*for (int i = 0 ; i < earthquakes.size();i++){
+                Log.i("TaG",earthquakes.get(i).toString());
+            }*/
             mAdapter.addAll(earthquakes);
         }else{
-
+            FinalQuakes = (ArrayList<Earthquake>)earthquakes;
+            emptyView.setText("It Seems No Earthquakes appeared here.");
+            emptyView.setVisibility(View.VISIBLE);
         }
     }
     public void GetConnectivity(){
@@ -223,17 +291,40 @@ public class EarthquakeActivity extends AppCompatActivity
             @Override
             public void onConnect() {
                 NetworkFlag = true;
+                floatingActionButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Intent intent = new Intent(getApplicationContext(),maps_activity.class);
+                        startActivity(intent);
+                    }
+                });
                 Toast.makeText(getApplicationContext(),"Connected",Toast.LENGTH_SHORT).show();
                 StatusView = (TextView)findViewById(R.id.textView);
-
+                StatusView.setBackgroundColor(getResources().getColor(R.color.BackOnline));
                 if(startflag){
                     startflag = false;
                     StatusView.setText("Connected");
+                    swipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipeContainer);
+                    swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+                        @Override
+                        public void onRefresh() {
+                            getLoaderManager().restartLoader(EARTHQUAKE_LOADER_ID, null,EarthquakeActivity.this);
+                            //swipeRefreshLayout.setRefreshing(false);
+                            /*new Handler().postDelayed(new Runnable() {
+                                @Override public void run() {
+                                    // Stop animation (This will be after 3 seconds)
+                                    swipeRefreshLayout.setRefreshing(false);
+                                    Toast.makeText(getApplicationContext(),"Refreshed..!",Toast.LENGTH_SHORT).show();
+                                }
+                            }, 4000);*/
+
+                        }
+                    });
                     Thread thread = new Thread() {
                         @Override
                         public void run() {
                             try {
-                                Thread.sleep(3000);
+                                Thread.sleep(2000);
                             } catch (InterruptedException e) {
                             }
 
@@ -249,9 +340,10 @@ public class EarthquakeActivity extends AppCompatActivity
                     thread.start();
                 }else {
                     StatusView.setVisibility(View.VISIBLE);
-                    StatusView.setText("Back Online(Tap To Refresh)");
-                    //final EarthquakeActivity earth = new EarthquakeActivity();
-                    StatusView.setOnClickListener(new View.OnClickListener() {
+                    StatusView.setText("Back Online(Pull To Refresh)");
+                    StatusView.setTextColor(Color.WHITE);
+                    StatusView.setBackgroundColor(getResources().getColor(R.color.BackOnline));
+                    /*StatusView.setOnClickListener(new View.OnClickListener() {
                         @Override
                         public void onClick(View view) {
                             StatusView.setVisibility(View.GONE);
@@ -260,10 +352,26 @@ public class EarthquakeActivity extends AppCompatActivity
 
                             getLoaderManager().restartLoader(EARTHQUAKE_LOADER_ID, null,EarthquakeActivity.this);
                         }
+                    });*/
+                    swipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipeContainer);
+                    swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+                        @Override
+                        public void onRefresh() {
+                            StatusView.setVisibility(View.GONE);
+
+                            getLoaderManager().restartLoader(EARTHQUAKE_LOADER_ID, null,EarthquakeActivity.this);
+                            /*new Handler().postDelayed(new Runnable() {
+                                @Override public void run() {
+                                    // Stop animation (This will be after 3 seconds)
+                                    swipeRefreshLayout.setRefreshing(false);
+                                    Toast.makeText(getApplicationContext(), "Refreshed..!", Toast.LENGTH_LONG).show();
+                                }
+                            }, 4000);*/
+                        }
                     });
+
                 }
-                StatusView.setTextColor(Color.WHITE);
-                StatusView.setBackgroundColor(getResources().getColor(R.color.BackOnline));
+
 
                 //setViews(con);
             }
@@ -274,13 +382,27 @@ public class EarthquakeActivity extends AppCompatActivity
             public void onDisconnect() {
                 NetworkFlag = false;
                 startflag = false;
+                floatingActionButton.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        Toast.makeText(getApplicationContext(),"Cant Access Map In Offline Mode.",Toast.LENGTH_SHORT).show();
+                    }
+                });
                 //setViews(con);
                 Toast.makeText(getApplicationContext(),"Disconnected",Toast.LENGTH_SHORT).show();
                 StatusView = (TextView)findViewById(R.id.textView);
-                StatusView.setOnClickListener(new View.OnClickListener() {
+                /*StatusView.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
                         StatusView.setText("Offline Mode :(");
+                    }
+                });*/
+                swipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipeContainer);
+                swipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+                    @Override
+                    public void onRefresh() {
+                        Toast.makeText(getApplicationContext(),"Offline!",Toast.LENGTH_SHORT).show();
+                        swipeRefreshLayout.setRefreshing(false);
                     }
                 });
                 runOnUiThread(new Runnable() {
@@ -297,13 +419,19 @@ public class EarthquakeActivity extends AppCompatActivity
             }
         });
     }
+    private int Min(int a,int b){
+        return a<b?a:b;
+    }
+    /*public ArrayList<Earthquake> getQuakes(){
+        return FinalQuakes;
+    }*/
     private void StoreDB(List<Earthquake> earthquakes)throws SQLiteException {
         Dbhelper dbhelper = new Dbhelper(this);
         sqLiteDatabaseWrite = dbhelper.getWritableDatabase();
         sqLiteDatabaseWrite.execSQL("DROP TABLE IF EXISTS "+Dbhelper.TB_NAME);
         sqLiteDatabaseWrite.execSQL(Dbhelper.Create);
         //earthquakes = (ArrayList<Earthquake>)earthquakes;
-        for (int i = 0 ; i < 10;i++){
+        for (int i = 0 ; i < Min(10,earthquakes.size());i++){
             ContentValues contentValues = new ContentValues();
             contentValues.put(Dbhelper.MAG,earthquakes.get(i).getMagnitude());
             contentValues.put(Dbhelper.LOC,earthquakes.get(i).getLocation());

@@ -60,4 +60,6 @@
     <color name="magnitude10plus">#C03823</color>
     <color name = "BackOnline">#388e3c</color>
     <color name="OfflineColor">#9E9E9E</color>
+    <color name="ThemeColor">#283840</color>
+    <color name="ShowMapColor">#334d5c</color>
 </resources>
